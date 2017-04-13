@@ -187,15 +187,20 @@ LIVECODE_FUNCTION(mergJSONEncode)
         
     } else {
         
-        ExternalString tArray[tKeycount];
-        char * tKeys[tKeycount];
+        ExternalString* tArray = malloc(tKeycount * sizeof(ExternalString));
+        char ** tKeys = malloc(tKeycount * sizeof(char *));
         GetArray(p_arguments[0], &tKeycount, tArray, tKeys, &tSuccess);
-        if (tSuccess == EXTERNAL_FAILURE) LIVECODE_ERROR("could not read variable");
+		if (tSuccess == EXTERNAL_FAILURE)
+		{
+			free(tArray);
+			free(tKeys);
+			LIVECODE_ERROR("could not read variable");
+		}
         
         // NEED TO MAINTAIN ARRAY ORDER IN JSON ARRAYS BUT LC ARRAY KEYS ARE OUT OF NUMERIC ORDER
         Bool tIsArray = (tForceType == NULL  || strcmp(tForceType, "object"));
-        int tKeyMap[tKeycount];
-        Bool tCheckMap[tKeycount];
+        int * tKeyMap = malloc(tKeycount * sizeof(int));
+        Bool * tCheckMap = malloc(tKeycount * sizeof(Bool));
         int tKey;
         
         if (tIsArray) {
@@ -255,6 +260,10 @@ LIVECODE_FUNCTION(mergJSONEncode)
                         tKeyJSON = json_string(tString);
                         free(tString);
                         if (!tKeyJSON) {
+							free(tArray);
+							free(tKeys);
+							free(tKeyMap);
+							free(tCheckMap);
                             LIVECODE_ERROR("could not encode value in array element");
                         }
                     } else {
@@ -263,6 +272,10 @@ LIVECODE_FUNCTION(mergJSONEncode)
                         if (!tKeyJSON) {
                             tErrorString = malloc(strlen("could not decode JSON in array element: ")+strlen(tError.text)+1);
                             json_decref(tJSON);
+							free(tArray);
+							free(tKeys);
+							free(tKeyMap);
+							free(tCheckMap);
                             LIVECODE_ERROR(tErrorString);
                         }
                     }
@@ -274,6 +287,10 @@ LIVECODE_FUNCTION(mergJSONEncode)
                     tKeyJSON = getPrimitiveJSON(tString,tForceType);
                     free(tString);
                     if (!tKeyJSON) {
+						free(tArray);
+						free(tKeys);
+						free(tKeyMap);
+						free(tCheckMap);
                         LIVECODE_ERROR("could not encode value in array element");
                     }
                 }
@@ -284,7 +301,13 @@ LIVECODE_FUNCTION(mergJSONEncode)
                 json_object_set_new(tJSON, tKeys[tKeyIndex], tKeyJSON);
             }
         }
+
+		free(tArray);
+		free(tKeys);
+		free(tKeyMap);
+		free(tCheckMap);
     }
+
     size_t tFlags = JSON_ENCODE_ANY;
     if (tPretty) {
         tFlags = tFlags | JSON_INDENT(2);
@@ -330,7 +353,7 @@ LIVECODE_FUNCTION(mergJSONDecode)
                 LIVECODE_WRITEVARIABLE("", 1);
             } else {
                 tSize = json_array_size(tJSON);
-                ExternalString tArray[tSize];
+                ExternalString* tArray = malloc(tSize * sizeof(ExternalString));
                 for (i = 0;i < tSize;i++) {
                     json_t * tValue = json_array_get(tJSON, i);
                     char * tKeyJSON;
@@ -354,13 +377,15 @@ LIVECODE_FUNCTION(mergJSONDecode)
                     tArray[i].length = (int)strlen(tKeyJSON);
                 }
                 SetArray(p_arguments[1], tSize, tArray, NULL, &success);
-                if (success == EXTERNAL_FAILURE) {
-                    LIVECODE_ERROR("could not set array");
-                }
+                
                 for (i=0;i<tSize;i++) {
                     free((void *)tArray[i].buffer);
                 }
-                
+				free(tArray);
+
+				if (success == EXTERNAL_FAILURE) {
+					LIVECODE_ERROR("could not set array");
+				}
             }
             break;
         case JSON_OBJECT:
@@ -368,8 +393,8 @@ LIVECODE_FUNCTION(mergJSONDecode)
                 LIVECODE_WRITEVARIABLE("", 1);
             } else {
                 tSize = json_object_size(tJSON);
-                ExternalString tArray[tSize];
-                char *tKeys[tSize];
+				ExternalString* tArray = malloc(tSize * sizeof(ExternalString));
+				char **tKeys = malloc(tSize * sizeof(char *));
                 const char *tKey;
                 json_t *tValue;
                 int i = 0;
@@ -393,15 +418,15 @@ LIVECODE_FUNCTION(mergJSONDecode)
                     i++;
                 }
                 SetArray(p_arguments[1], tSize, tArray, tKeys, &success);
-                if (success == EXTERNAL_FAILURE) {
-                    LIVECODE_ERROR("could not set array");
-                }
                 
                 for (i=0;i<tSize;i++) {
                     free((void *)tArray[i].buffer);
                     free(tKeys[i]);
                 }
-                
+				free(tArray);
+				free(tKeys);
+
+
             }
             break;
         default:
